@@ -17,23 +17,19 @@ from email.mime.base import MIMEBase
 from email import encoders
 
 # File path with images: to be set as working directory
-img_fp = 'path/to/images'
+img_fp = '/path/to/images'
 
 # File path for license plate recognition response: relative to img_fp
-lp_response_path = "path/to/plate/response"
+lp_response_path = "path/to/response/json"
 
 #phone number for notification
 phone = 5555555555
 
 # Microsoft Azure Face API Subscription Key
-KEY = 'FACE API KEY'
+KEY = 'Face API Key'
 
 # openALPR Subscription Key
-ALPR_KEY = 'openALPR API KEY'
-
-########################################################
-# Email Account Information must be edited in notify2()
-########################################################
+ALPR_KEY = 'openALPR Key'
 
 # Returns number of faces detected in an image
 def getFace(fp):
@@ -76,9 +72,9 @@ def getPlates(fp):
 # Sends text message through email
 def notify2(message,number):
     # Define Addresses
-    fromaddr = "fromaddress@gmail.com"
+    fromaddr = "emailaccount@gmail.com"
     # AT&T text only
-    toaddr = "{}@txt.att.net".format(str(number))
+    #toaddr = "{}@txt.att.net".format(str(number))
     
     # AT&T with picture
     #toaddr = "{}@mms.att.net".format(str(number))
@@ -87,7 +83,7 @@ def notify2(message,number):
     #toaddr = "{}@vtext.com".format(str(number))
     
     # Verizon with picture
-    #toaddr = "{}@vzwpix.com".format(str(number))
+    toaddr = "{}@vzwpix.com".format(str(number))
     
     # T-Mobile text only
     #toaddr = "{}@tmomail.net".format(str(number))
@@ -104,24 +100,25 @@ def notify2(message,number):
     msg['To'] = toaddr
     msg['Subject'] = 'Accident Notification'
     
-    body = "Your car has been hit.\n\n" + message
+    body = "Your car may have been hit.\n\n" + message
     
     msg.attach(MIMEText(body,'plain'))
     
-    # Attache Image
-    #filename = 'galv.jpg'
-    #attachment = open(filename,'rb')
-    #part = MIMEBase('application','octet-stream')
-    #part.set_payload((attachment).read())
-    #encoders.encode_base64(part)
-    #part.add_header('Content-Disposition', "attachment; filename= %s" %filename)
-    #msg.attach(part)
+    if message != "":
+        # Attache Image
+        #filename = 'H3.jpg'
+        #attachment = open(filename,'rb')
+        #part = MIMEBase('application','octet-stream')
+        #part.set_payload((attachment).read())
+        #encoders.encode_base64(part)
+        #part.add_header('Content-Disposition', "attachment; filename= %s" %filename)
+        #msg.attach(part)
     
     # Log into email account and send email
     server = smtplib.SMTP(host='smtp.gmail.com',port=587)
     server.ehlo()
     server.starttls()
-    server.login(fromaddr,"Password")
+    server.login(fromaddr,"password")
     mes = msg.as_string()
     server.sendmail(fromaddr,toaddr,mes)
     server.quit()
@@ -143,6 +140,10 @@ def main():
     
     # for every JPG image
     for f in files:
+        if f == '.DS_Store':
+            continue
+        
+        print(f)
         # get nearest license plate in picture
         plate = getPlates(f)
         # store plate number in corresponding dataframe location (if applicable)
@@ -161,18 +162,21 @@ def main():
     # get list of JPG images that have a license plate number in them
     plate_list = df[df.loc[:,'Plates'] != 0]
     plate_list = plate_list.loc[:,'Plates'].unique()
+    msg = ""
+    if len(plate_list) > 0:
+        # create message listing the license plates in detected
+        plate_msg = "The following plates were near your car:\n"
+        for x in plate_list:
+            plate_msg = plate_msg + str(x) + "\n"
+        msg = msg + plate_msg
     
-    # create message listing the license plates in detected
-    plate_msg = "The following plates were near your car:\n"
-    for x in plate_list:
-        plate_msg = plate_msg + str(x) + "\n"
-        
-    # add list of images that contain faces
-    face_msg = "The following images contain faces nearby:\n"
-    for x in has_face:
-        face_msg = face_msg + str(x) + "\n"
+    if len(has_face) > 0:
+        # add list of images that contain faces
+        face_msg = "The following images contain faces nearby:\n"
+        for x in has_face:
+            face_msg = face_msg + str(x) + "\n"
+        msg = msg + face_msg
     
-    msg = plate_msg+face_msg
     
     # send notification message to the phone number
     notify2(msg,phone)
